@@ -57,5 +57,5 @@ See README.txt (this file), for intro and "About".
 See simple-diy.txt for some simple ways of creating a custom shim. E.g. adapting a "page" to be generic, "mapping" a localhost service, etc.
 See technical.txt for a description of the technical details.
 See integrating-stuff.txt for integrating using this extension/add-on, including recipes, etc.
-See design.txt for the design doc of this extension/add-on.
+See https://github.com/awgrover/browser-protocol-shim/wiki/design for the design doc of this extension/add-on.
 
