@@ -1,2 +1,2 @@
-component {f621f589-6e0b-4abe-9c25-b9cf972a16c0} components/AboutFosdem.js
-contract @mozilla.org/network/protocol;1?name=fosdem {f621f589-6e0b-4abe-9c25-b9cf972a16c0}
+component {7270a1fe-7b2f-4dc0-a935-664e9941d3a3} components/AboutFosdem.js
+contract @mozilla.org/network/protocol;1?name=apps {7270a1fe-7b2f-4dc0-a935-664e9941d3a3}

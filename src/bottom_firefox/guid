@@ -1,0 +1,5 @@
+{ 
+    # for the chrome.manifest
+    uuidComponent => '{7270a1fe-7b2f-4dc0-a935-664e9941d3a3}',
+    contractIDScheme => 'apps',
+}
