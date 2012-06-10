@@ -26,6 +26,8 @@
  * include components and functions we need to create a new protocol
 * */
 
+function debug() { for(var i=0; i<arguments.length; i++) {dump(arguments[i]);dump(" ");}; dump("\n") };
+
 const Ci = Components.interfaces;
 const Cc = Components.classes;
 const Cr = Components.results;
@@ -46,6 +48,8 @@ function isNumeric(n) {
  * */
 function  WhereToGo(fres){
 	
+        return 'http://localhost:5984/'+fres.host+(fres.path ? '/'+fres.path : '');
+
 	var cyear = new Date().getFullYear();
 	
 	if (isNumeric(fres)){
@@ -81,27 +85,64 @@ function  WhereToGo(fres){
 function AboutFosdem() {
 }
 
+function makeURI(aURL, aOriginCharset, aBaseURI) {
+  var ioService = Components.classes["@mozilla.org/network/io-service;1"]
+                    .getService(Components.interfaces.nsIIOService);
+  debug("Make ",aURL," ~ ",aBaseURI.spec);
+  return ioService.newURI(aURL, aOriginCharset, aBaseURI);
+  }
+
+function tryit(aSpec, aOriginCharset, aBaseURI) {
+    var standardURL = Components.classes["@mozilla.org/network/standard-url;1"]
+        .createInstance(Components.interfaces.nsIStandardURL);
+    standardURL.init(
+        Ci.nsIStandardURL.URLTYPE_STANDARD,
+        0, // default port
+        aSpec, 
+        aOriginCharset, 
+        aBaseURI
+        );
+    debug("turn "+aSpec+" into ",standardURL);
+    debug("..host",standardURL.host,"p",standardURL.path);
+    debug(":: ",standardURL,standardURL.spec,"s ",standardURL.scheme,'h ',standardURL.host,'p ',standardURL.path);
+    return standardURL;
+    }
+
 AboutFosdem.prototype = {
   scheme: "<%= $protocol %>",
-  protocolFlags: nsIProtocolHandler.URI_NORELATIVE |
-                 nsIProtocolHandler.URI_NOAUTH |
+  protocolFlags:nsIProtocolHandler.URI_STD | // |  nsIProtocolHandler.URI_NORELATIVE |
+                 // nsIProtocolHandler.URI_NOAUTH |
                  nsIProtocolHandler.URI_LOADABLE_BY_ANYONE,
 
   newURI: function(aSpec, aOriginCharset, aBaseURI)
   {
+    // Need to reparse, apparently. aSpec has scheme & path only
+    try {
+    // interestingly, the first time I see aBaseURI -> this xpi path
+    debug("newURI ",aSpec,", ",aBaseURI,(aBaseURI ? aBaseURI.spec : 'null'));
     var uri = Cc["@mozilla.org/network/simple-uri;1"].createInstance(Ci.nsIURI);
     uri.spec = aSpec;
+
     return uri;
+    } catch (e) { debug(e) }
   },
 
   newChannel: function(aURI)
   {
-    var ioservice = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService);
-    var FosdemResource = aURI.spec.split(":")[1];
-    var wheretogo = WhereToGo(FosdemResource);
-    var uri = ioservice.newURI(wheretogo, null, null);
-    var channel = ioservice.newChannelFromURI(uri, null).QueryInterface(Ci.nsIHttpChannel);
-    return channel;
+    try {
+        debug("break down ",aURI.path);
+        pieces = aURI.path.match(/^(?:\/\/([^\/]*))?(\/?.+)?/); // approx. right
+        uri = {}
+        uri.host = pieces[1];
+        uri.path = pieces[2];
+        debug("Reparsed ",uri,'h ',uri.host,'p ',uri.path);
+        var ioservice = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService);
+        var FosdemResource = aURI.spec.split(":")[1];
+        var wheretogo = WhereToGo(uri);
+        var uri = ioservice.newURI(wheretogo, null, null);
+        var channel = ioservice.newChannelFromURI(uri, null).QueryInterface(Ci.nsIHttpChannel);
+        return channel;
+    } catch (e) { debug(e) }
   },
   classDescription: "Fosdem Basic Protocol Handler",
   contractID: "@mozilla.org/network/protocol;1?name=<%= $protocol %>", // must match chrome.manifest
