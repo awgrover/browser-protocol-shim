@@ -81,7 +81,7 @@ function AboutFosdem() {
 }
 
 AboutFosdem.prototype = {
-  scheme: "<%= $contractIDScheme %>",
+  scheme: "<%= $protocol %>",
   protocolFlags: nsIProtocolHandler.URI_NORELATIVE |
                  nsIProtocolHandler.URI_NOAUTH |
                  nsIProtocolHandler.URI_LOADABLE_BY_ANYONE,
@@ -103,7 +103,7 @@ AboutFosdem.prototype = {
     return channel;
   },
   classDescription: "Fosdem Basic Protocol Handler",
-  contractID: "@mozilla.org/network/protocol;1?name=<%= $contractIDScheme %>", // must match chrome.manifest
+  contractID: "@mozilla.org/network/protocol;1?name=<%= $protocol %>", // must match chrome.manifest
   classID: Components.ID('<%= $uuidComponent %>'), // must match chrome.manifest!, descriptive for now
   QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler])
 }

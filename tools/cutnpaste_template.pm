@@ -35,7 +35,7 @@ sub render {
         # Have to capture the \ so we can do the right thing
         my $interp = sub {
           # escape, fieldname
-          warn "interp $2 (out of:$&)";
+          # warn "interp $2 (out of:$&)";
           if ($1) { 
             substr($&,1);
             } # escaped, so remove /
@@ -47,7 +47,7 @@ sub render {
             $data->{$2}; 
             }
           };
-        warn "Pref ",qr((\\?)$PREFIX([a-zA-Z]\w*|_|[0-9])%>);
+        # warn "Pref ",qr((\\?)$PREFIX([a-zA-Z]\w*|_|[0-9])%>);
         $head =~ s/(\\?)$PREFIX([a-zA-Z]\w*|_|[0-9])$SUFFIX/&$interp/eg;
         push @rez, $head;
 

@@ -8,21 +8,22 @@ firefox_extension_id := $(shell xmllint --xpath '//*[local-name() ="id"]/text()[
 firefox_profile_name := development
 firefox_profile_dir := $(shell realpath ~/.mozilla/firefox/318m7rgj.$(firefox_profile_name))
 # FIXME: name
-contains_guid := $(firefox_src)/chrome.manifest $(firefox_src)/components/AboutFosdem.js
+tmpl_derived := $(shell find $(firefox_src) -type f -name '*.tmpl' | sed 's/\.tmpl// )
 
 .PHONY : re-run
-re-run: $(contains_guid) dev-install
+re-run: dev-install $(tmpl_derived)
 	if [ -f .ff.pid ]; then pid=`cat .ff.pid`; ps w -p $$pid | grep $(firefox_profile_name) && kill $$pid || (echo "can't find $$pid from .ff.pid"; ps w -C firefox; false); else true; fi
 	env MOZ_PURGE_CACHES=1 firefox -P $(firefox_profile_name) -no-remote apps:about& echo $$! > .ff.pid
 
 .PHONY : dev-install
 dev-install: $(firefox_profile_dir)/extensions/$(firefox_extension_id)
-	echo "Dev 'pointer' $< ==>> " `cat $<`
+	@ echo "Dev 'pointer' $< ==>> " `cat $<`
 
 $(firefox_profile_dir)/extensions/$(firefox_extension_id) : $(firefox_src)/*/*
 	echo "ID" $@
 	mkdir -p `dirname $@`
 	rdf=`realpath $(firefox_install_rdf)`; echo `dirname $$rdf` > $@
 
-$(contains_guid) : $(firefox_src)/guid
-	for X in "$@"; do tools/cutnpaste_template.pm $$X.tmpl $< > $$X; done
+# build files from templates
+% : %.tmpl $(firefox_src)/guid
+	tools/cutnpaste_template.pm $< $(firefox_src)/guid > $@
