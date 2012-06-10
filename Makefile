@@ -9,11 +9,12 @@ firefox_profile_name := development
 firefox_profile_dir := $(shell realpath ~/.mozilla/firefox/318m7rgj.$(firefox_profile_name))
 # Warning: assumes no spaces in filenames
 tmpl_derived := $(shell find $(firefox_src) -type f -name '*.tmpl' | sed 's/\.tmpl//g' )
+test_protocol := couchdb
 
 .PHONY : re-run
 re-run: dev-install $(tmpl_derived)
 	if [ -f .ff.pid ]; then pid=`cat .ff.pid`; ps w -p $$pid | grep $(firefox_profile_name) && kill $$pid || (echo "can't find $$pid from .ff.pid"; ps w -C firefox; false); else true; fi
-	env MOZ_PURGE_CACHES=1 firefox -P $(firefox_profile_name) -no-remote apps:about& echo $$! > .ff.pid
+	env MOZ_PURGE_CACHES=1 firefox -P $(firefox_profile_name) -no-remote couchdb:about& echo $$! > .ff.pid
 
 .PHONY : dev-install
 dev-install: $(firefox_profile_dir)/extensions/$(firefox_extension_id)

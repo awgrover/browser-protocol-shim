@@ -82,7 +82,7 @@ function AboutFosdem() {
 }
 
 AboutFosdem.prototype = {
-  scheme: "apps",
+  scheme: "couchdb",
   protocolFlags: nsIProtocolHandler.URI_NORELATIVE |
                  nsIProtocolHandler.URI_NOAUTH |
                  nsIProtocolHandler.URI_LOADABLE_BY_ANYONE,
@@ -104,7 +104,7 @@ AboutFosdem.prototype = {
     return channel;
   },
   classDescription: "Fosdem Basic Protocol Handler",
-  contractID: "@mozilla.org/network/protocol;1?name=apps", // must match chrome.manifest
+  contractID: "@mozilla.org/network/protocol;1?name=couchdb", // must match chrome.manifest
   classID: Components.ID('{7270a1fe-7b2f-4dc0-a935-664e9941d3a3}'), // must match chrome.manifest!, descriptive for now
   QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler])
 }
