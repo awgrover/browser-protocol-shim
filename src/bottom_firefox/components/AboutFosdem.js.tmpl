@@ -1,3 +1,4 @@
+try{
 // <%= $DNEWarning %><%= $FILE %>
 /*
  *             DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
@@ -140,8 +141,15 @@ AboutFosdem.prototype = {
         var FosdemResource = aURI.spec.split(":")[1];
         var wheretogo = WhereToGo(uri);
         var uri = ioservice.newURI(wheretogo, null, null);
-        var channel = ioservice.newChannelFromURI(uri, null).QueryInterface(Ci.nsIHttpChannel);
-        return channel;
+        var backend_channel = ioservice.newChannelFromURI(uri, null).QueryInterface(Ci.nsIHttpChannel);
+
+        var apparent_channel = new ViaHTTPChannel(backend_channel);
+        debug("apparent_channel const ",apparent_channel.constructor);
+        // debug(".LOAD_BACKGROUND",fakey_prototype.LOAD_BACKGROUND);
+        // debug("via.LOAD_BACKGROUND",backend_channel.LOAD_BACKGROUND);
+        // apparent_channel.via = backend_channel;
+        apparent_channel.originalURI = aURI;
+        return apparent_channel;
     } catch (e) { debug(e) }
   },
   classDescription: "Fosdem Basic Protocol Handler",
@@ -150,7 +158,23 @@ AboutFosdem.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler])
 }
 
+debug("pre");
+function ViaHTTPChannel(via) { debug("new via") }
+fakey_prototype = {
+    classDescription: "Hides a HTTP Channel",
+    classID:          Components.ID("{f6a22d08-d9ff-489c-a696-1ba59f935b7e}"),
+    contractID:       "@etc.etc.com/ViaHTTPChannel;1",
+
+    QueryInterface: XPCOMUtils.generateQI([Ci.nsiChannel]),
+    asyncOpen : function() { debug("called VIA open"); this.via.asyncOpen() }
+    // open : function() { this.via.open() },
+    };
+ViaHTTPChannel.prototype=fakey_prototype;
+debug("pre");
+
 if (XPCOMUtils.generateNSGetFactory)
-  var NSGetFactory = XPCOMUtils.generateNSGetFactory([AboutFosdem]);
+  var NSGetFactory = XPCOMUtils.generateNSGetFactory([AboutFosdem, ViaHTTPChannel]);
 else
-  var NSGetModule = XPCOMUtils.generateNSGetModule([AboutFosdem]);
+  var NSGetModule = XPCOMUtils.generateNSGetModule([AboutFosdem, ViaHTTPChannel]);
+
+} catch (e) { debug(e) }
