@@ -7,8 +7,8 @@ firefox_install_rdf := $(firefox_src)/install.rdf
 firefox_extension_id := $(shell xmllint --xpath '//*[local-name() ="id"]/text()[not(starts-with(., "{"))]' $(firefox_install_rdf))
 firefox_profile_name := development
 firefox_profile_dir := $(shell realpath ~/.mozilla/firefox/318m7rgj.$(firefox_profile_name))
-# FIXME: name
-tmpl_derived := $(shell find $(firefox_src) -type f -name '*.tmpl' | sed 's/\.tmpl// )
+# Warning: assumes no spaces in filenames
+tmpl_derived := $(shell find $(firefox_src) -type f -name '*.tmpl' | sed 's/\.tmpl//g' )
 
 .PHONY : re-run
 re-run: dev-install $(tmpl_derived)
@@ -19,11 +19,14 @@ re-run: dev-install $(tmpl_derived)
 dev-install: $(firefox_profile_dir)/extensions/$(firefox_extension_id)
 	@ echo "Dev 'pointer' $< ==>> " `cat $<`
 
+.PHONY : tmpl
+tmpl : $(tmpl_derived)
+
 $(firefox_profile_dir)/extensions/$(firefox_extension_id) : $(firefox_src)/*/*
 	echo "ID" $@
 	mkdir -p `dirname $@`
 	rdf=`realpath $(firefox_install_rdf)`; echo `dirname $$rdf` > $@
 
 # build files from templates
-% : %.tmpl $(firefox_src)/guid
-	tools/cutnpaste_template.pm $< $(firefox_src)/guid > $@
+% : %.tmpl $(firefox_src)/build.config
+	tools/cutnpaste_template.pm $< $(firefox_src)/build.config > $@

@@ -113,9 +113,10 @@ sub main {
         ];
       }
 
-    warn Dumper(\%data);
+    # warn Dumper(\%data);
     my $template;
     if (-e $ARGV[0]) {
+      $data{'FILE'} = $ARGV[0];
       $template = join("",<>);
       }
     else {
