@@ -147,7 +147,7 @@ AboutFosdem.prototype = {
         debug("apparent_channel const ",apparent_channel.constructor);
         // debug(".LOAD_BACKGROUND",fakey_prototype.LOAD_BACKGROUND);
         // debug("via.LOAD_BACKGROUND",backend_channel.LOAD_BACKGROUND);
-        // apparent_channel.via = backend_channel;
+        apparent_channel.via = backend_channel;
         apparent_channel.originalURI = aURI;
         return apparent_channel;
     } catch (e) { debug(e) }
@@ -166,9 +166,114 @@ fakey_prototype = {
     contractID:       "@etc.etc.com/ViaHTTPChannel;1",
 
     QueryInterface: XPCOMUtils.generateQI([Ci.nsiChannel]),
-    asyncOpen : function() { debug("called VIA open"); this.via.asyncOpen() }
+    asyncOpen : function(a1, a2) { 
+        try {
+            debug("called VIA open",a1,a2); 
+            debug("LOAD_NORMAL ", this.LOAD_NORMAL);
+            debug("via.LOAD_NORMAL ", this.via.LOAD_NORMAL);
+            this.via.asyncOpen(a1, a2);
+        } catch (e) { debug(e) }
+        },
     // open : function() { this.via.open() },
+
+    /*methods*/
+    cancel: function(status){
+        this.via.cancel(status);
+    },
+    isPending: function(){
+        return this.via.isPending();
+    },
+    resume: function(){
+        this.via.resume();
+    },
+    suspend: function(){
+        this.via.suspend();
+    },
+/*methods*/
+    getRequestHeader: function(header){
+        return this.httpChannel.getRequestHeader(header);
+    },
+    getResponseHeader: function(header){
+        return this.httpChannel.getResponseHeader(header);
+    },  
+    isNoCacheResponse: function(){
+        return this.httpChannel.isNoCacheResponse;
+    },
+    isNoStoreResponse: function(){
+        return this.httpChannel.isNoStoreResponse;
+    },  
+    setRequestHeader: function(header , value , merge ){
+        dump("Set request header " + header + " to " + value + "\n");
+        this.httpChannel.setRequestHeader(header, value, merge);
+    },
+    setResponseHeader: function(header , value, merge ){
+        dump("Set response header " + header + " to " + value + "\n");
+        this.httpChannel.setResponseHeader(header, value, merge);
+    },
+    visitRequestHeaders: function(visitor){
+        this.httpChannel.visitRequestHeaders(visitor);
+    },
+    visitResponseHeaders: function(visitor){
+        this.httpChannel.visitResponseHeaders(visitor);
+    },
+    getRequestVersion: function(major,  minor){
+        this.httpChannelInternal.getRequestVersion(major, minor);
+    },
+    getResponseVersion: function(major, minor){
+        this.httpChannelInternal.getResponseVersion(major, minor);
+    },
+    setCookie: function(cookieHeader) {
+        this.httpChannelInternal.setCookie(cookieHeader);
+    },
     };
+(function() {
+    
+    debug("setup");
+    /*nsIRequest*/
+    /*constants*/
+    fakey_prototype.__defineGetter__('LOAD_NORMAL', function() {return this.via.LOAD_NORMAL});
+    fakey_prototype.__defineGetter__('LOAD_BACKGROUND', function() {return this.via.LOAD_BACKGROUND});
+    fakey_prototype.__defineGetter__('INHIBIT_CACHING', function() {return this.via.INHIBIT_CACHING});
+    fakey_prototype.__defineGetter__('INHIBIT_PERSISTENT_CACHING', function() {return this.via.INHIBIT_PERSISTENT_CACHING});
+    fakey_prototype.__defineGetter__('LOAD_BYPASS_CACHE', function() {return this.via.LOAD_BYPASS_CACHE});
+    fakey_prototype.__defineGetter__('LOAD_FROM_CACHE', function() {return this.via.LOAD_FROM_CACHE});
+    fakey_prototype.__defineGetter__('VALIDATE_ALWAYS', function() {return this.via.VALIDATE_ALWAYS});
+    fakey_prototype.__defineGetter__('VALIDATE_NEVER', function() {return this.via.VALIDATE_NEVER});
+    fakey_prototype.__defineGetter__('VALIDATE_ONCE_PER_SESSION', function() {return this.via.VALIDATE_ONCE_PER_SESSION});
+    
+    /*properties*/
+    fakey_prototype.__defineGetter__('loadFlags', function() {return this.via.loadFlags});
+    fakey_prototype.__defineSetter__('loadFlags', function(val) {this.via.loadFlags = val});
+    fakey_prototype.__defineGetter__('loadGroup', function() {return this.via.loadGroup});
+    fakey_prototype.__defineSetter__('loadGroup', function(val) {this.via.loadGroup = val});
+    fakey_prototype.__defineGetter__('name', function() {return this.via.name});
+    fakey_prototype.__defineGetter__('status', function() {return this.via.status});
+    
+    /*nsIChannel*/
+    /*constants*/
+    fakey_prototype.__defineGetter__('LOAD_DOCUMENT_URI', function() {return this.via.LOAD_DOCUMENT_URI});
+    fakey_prototype.__defineGetter__('LOAD_RETARGETED_DOCUMENT_URI', function() {return this.via.LOAD_RETARGETED_DOCUMENT_URI});
+    fakey_prototype.__defineGetter__('LOAD_REPLACE', function() {return this.via.LOAD_REPLACE});
+    fakey_prototype.__defineGetter__('LOAD_INITIAL_DOCUMENT_URI', function() {return this.via.LOAD_INITIAL_DOCUMENT_URI});
+    fakey_prototype.__defineGetter__('LOAD_TARGETED', function() {return this.via.LOAD_TARGETED});
+
+    /*properties*/
+    fakey_prototype.__defineGetter__('contentCharset', function() {return this.via.contentCharset});
+    fakey_prototype.__defineSetter__('contentCharset', function(val) {this.via.contentCharset = val});
+    fakey_prototype.__defineGetter__('contentLength', function() {return this.via.contentLength});
+    fakey_prototype.__defineSetter__('contentLength', function(val) {this.via.contentLength = val});
+    fakey_prototype.__defineGetter__('contentType', function() {return this.via.contentType});
+    fakey_prototype.__defineSetter__('contentType', function(val) {this.via.contentType = val});
+    fakey_prototype.__defineGetter__('notificationCallbacks', function() {return this.via.notificationCallbacks});
+    fakey_prototype.__defineSetter__('notificationCallbacks', function(val) {this.via.notificationCallbacks = val});
+    fakey_prototype.__defineGetter__('originalURI', function() {return this.via.originalURI});
+    fakey_prototype.__defineSetter__('originalURI', function(val) {this.via.originalURI = val});
+    fakey_prototype.__defineGetter__('owner', function() {return this.via.owner});
+    fakey_prototype.__defineSetter__('owner', function(val) {this.via.owner = val});      
+    fakey_prototype.__defineGetter__('securityInfo', function() {return this.via.securityInfo});
+    fakey_prototype.__defineGetter__('URI', function() {return this.via.URI});
+    debug("done setup");
+    })();
 ViaHTTPChannel.prototype=fakey_prototype;
 debug("pre");
 
