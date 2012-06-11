@@ -49,7 +49,7 @@ function isNumeric(n) {
  * */
 function  WhereToGo(fres){
 	
-        return 'http://localhost:5984/'+fres.host+(fres.path ? '/'+fres.path : '');
+        return 'http://localhost:5984/'+fres.host+(fres.path ? fres.path : '');
 
 	var cyear = new Date().getFullYear();
 	
@@ -89,23 +89,26 @@ function AboutFosdem() {
 function makeURI(aURL, aOriginCharset, aBaseURI) {
   var ioService = Components.classes["@mozilla.org/network/io-service;1"]
                     .getService(Components.interfaces.nsIIOService);
-  debug("Make ",aURL," ~ ",aBaseURI.spec);
+  debug("Make ",aURL," ~ ",(aBaseURI ? aBaseURI.spec : null));
   return ioService.newURI(aURL, aOriginCharset, aBaseURI);
   }
 
 function tryit(aSpec, aOriginCharset, aBaseURI) {
     var standardURL = Components.classes["@mozilla.org/network/standard-url;1"]
         .createInstance(Components.interfaces.nsIStandardURL);
+    standardURL.init( Ci.nsIStandardURL.URLTYPE_STANDARD,-1,"http://ob.org/joe",aOriginCharset, aBaseURI);
+    debug("Sample x",standardURL.spec);
     standardURL.init(
         Ci.nsIStandardURL.URLTYPE_STANDARD,
-        0, // default port
+        -1, // default port
         aSpec, 
         aOriginCharset, 
         aBaseURI
         );
-    debug("turn "+aSpec+" into ",standardURL);
+    debug("turn "+aSpec+" + "+(aBaseURI ? aBaseURI.spec : null)+" into ",standardURL);
     debug("..host",standardURL.host,"p",standardURL.path);
     debug(":: ",standardURL,standardURL.spec,"s ",standardURL.scheme,'h ',standardURL.host,'p ',standardURL.path);
+    debug("->",standardURL.spec);
     return standardURL;
     }
 
@@ -121,10 +124,10 @@ AboutFosdem.prototype = {
     try {
     // interestingly, the first time I see aBaseURI -> this xpi path
     debug("newURI ",aSpec,", ",aBaseURI,(aBaseURI ? aBaseURI.spec : 'null'));
-    var uri = Cc["@mozilla.org/network/simple-uri;1"].createInstance(Ci.nsIURI);
-    uri.spec = aSpec;
-
-    return uri;
+    uri = new OurSchemeURL(aSpec, aOriginCharset, aBaseURI);
+    // debug("newURI->",inspect_object(uri));
+    debug("newuri->",uri.spec);
+    return uri.nsIURI();
     } catch (e) { debug(e) }
   },
 
@@ -132,15 +135,15 @@ AboutFosdem.prototype = {
   {
     try {
         debug("break down ",aURI.path);
-        pieces = aURI.path.match(/^(?:\/\/([^\/]*))?(\/?.+)?/); // approx. right
+        var reparsed = new OurSchemeURL(aURI.spec, aURI.originCharset, null);
         uri = {}
-        uri.host = pieces[1];
-        uri.path = pieces[2];
+        uri.host = reparsed.host;
+        uri.path = reparsed.path;
         debug("Reparsed ",uri,'h ',uri.host,'p ',uri.path);
         var ioservice = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService);
-        var FosdemResource = aURI.spec.split(":")[1];
         var wheretogo = WhereToGo(uri);
         var uri = ioservice.newURI(wheretogo, null, null);
+        debug("backend uri",uri.spec);
         var backend_channel = ioservice.newChannelFromURI(uri, null).QueryInterface(Ci.nsIHttpChannel);
 
         var apparent_channel = new ViaHTTPChannel(backend_channel);
@@ -149,6 +152,10 @@ AboutFosdem.prototype = {
         // debug("via.LOAD_BACKGROUND",backend_channel.LOAD_BACKGROUND);
         apparent_channel.via = backend_channel;
         apparent_channel.originalURI = aURI;
+        backend_channel.originalURI = aURI;
+        apparent_channel.URI = aURI;
+            debug("apparent originalURI",apparent_channel.originalURI.spec);
+            debug("apparent URI",apparent_channel.URI.spec);
         return apparent_channel;
     } catch (e) { debug(e) }
   },
@@ -158,19 +165,101 @@ AboutFosdem.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler])
 }
 
+debug("xOur");
+function OurSchemeURL(aSpec, aOriginCharset, aBaseURI) {
+    try {
+        debug("OurScheme ",aSpec," ~ ",(aBaseURI ? aBaseURI.spec : null));
+        debug("base scheme",aBaseURI && aBaseURI.scheme);
+
+        this.__defineGetter__('spec', function() {return this._spec()});
+        this.__defineSetter__('spec', function(val) { debug("setter",val); return this.parse_uri(val) });
+
+        this.baseURI = aBaseURI && new OurSchemeURL(aBaseURI.spec, aOriginCharset, null);
+        this.spec = aSpec;
+        debug("OurScheme ->",this,inspect_object(this)," => ",uri.spec);
+    } catch (e) { debug(e,"\n",e.stack) }
+    
+    };
+
+function inspect_object(o) {
+    var rez = "{";
+    for (var a in o) {
+        var v = o[a];
+        if (v != null && v.constructor == Function) { v = "function "+a+"(...)" }
+        rez = rez + "\t" + a + " : " + (v && v.toString().split("\n")[0]) + '\n';
+        }
+    rez = rez + "}";
+    return rez;
+    };
+
+debug("our proto");
+OurSchemeURL.prototype = {
+    classDescription: "Parses a general url",
+    classID:          Components.ID("{bcf52c33-4676-4fa1-8e8a-f8e88cb80af3}"),
+    contractID:       "@etc.etc.com/OurSchemeURL;1",
+    QueryInterface: XPCOMUtils.generateQI([Ci.nsIURI]),
+    parse_uri : function(spec) {
+        debug("parse",spec);
+        var scheme_parse = spec.match(/^([\w]+):(.*)/);
+        if (scheme_parse) {
+            this.scheme = scheme_parse[1];
+            spec = scheme_parse[2];
+            }
+        else {
+            this.scheme = this.baseURI && this.baseURI.scheme;
+            }
+        if (!spec || !spec.match(/^\//)) {
+            spec = this.baseURI.path + (spec || '');
+            }
+
+        var pieces = spec.match(/^(?:\/\/([^\/]*))?(\/?.+)?/); // approx. right
+        this.host = pieces[1] || (this.baseURI && this.baseURI.host) || '';
+        this.path = pieces[2] || '';
+
+        pieces = this.host.split(':');
+        if (pieces[1]) {
+            this.host = pieces[0];
+            this.port = pieces[1];
+            }
+        else {
+            this.port = -1;
+            }
+        },
+    _spec : function() {
+        var rez = "";
+        if (this.scheme && this.scheme != '') {rez += this.scheme + ':' }
+        if (this.user && this.user != '') {rez += this.user }
+        if (this.password && this.password != '') {rez += ":" + this.password }
+        if (this.user && this.user != '' || this.pasword && this.password != '' ) {rez += '@' }
+        rez += '//';
+        if (this.host && this.host != '') {rez += this.host }
+        if (this.port && this.port != -1) {rez += ':' + this.port }
+        if (this.path && this.path != '') {rez += this.path }
+        return rez;
+        },
+    nsIURI : function() {
+        var uri = Cc["@mozilla.org/network/simple-uri;1"].createInstance(Ci.nsIURI);
+        uri.spec = this.spec
+        return uri;
+        },
+    };
+
 debug("pre");
 function ViaHTTPChannel(via) { debug("new via") }
 fakey_prototype = {
     classDescription: "Hides a HTTP Channel",
     classID:          Components.ID("{f6a22d08-d9ff-489c-a696-1ba59f935b7e}"),
     contractID:       "@etc.etc.com/ViaHTTPChannel;1",
+    QueryInterface: XPCOMUtils.generateQI([Ci.nsIChannel]),
 
-    QueryInterface: XPCOMUtils.generateQI([Ci.nsiChannel]),
     asyncOpen : function(a1, a2) { 
         try {
             debug("called VIA open",a1,a2); 
             debug("LOAD_NORMAL ", this.LOAD_NORMAL);
             debug("via.LOAD_NORMAL ", this.via.LOAD_NORMAL);
+            debug("originalURI",this.originalURI.spec);
+            debug("URI",this.URI.spec);
+            debug("via uri",this.via.URI.spec);
             this.via.asyncOpen(a1, a2);
         } catch (e) { debug(e) }
         },
@@ -266,19 +355,18 @@ fakey_prototype = {
     fakey_prototype.__defineSetter__('contentType', function(val) {this.via.contentType = val});
     fakey_prototype.__defineGetter__('notificationCallbacks', function() {return this.via.notificationCallbacks});
     fakey_prototype.__defineSetter__('notificationCallbacks', function(val) {this.via.notificationCallbacks = val});
-    fakey_prototype.__defineGetter__('originalURI', function() {return this.via.originalURI});
-    fakey_prototype.__defineSetter__('originalURI', function(val) {this.via.originalURI = val});
     fakey_prototype.__defineGetter__('owner', function() {return this.via.owner});
     fakey_prototype.__defineSetter__('owner', function(val) {this.via.owner = val});      
     fakey_prototype.__defineGetter__('securityInfo', function() {return this.via.securityInfo});
-    fakey_prototype.__defineGetter__('URI', function() {return this.via.URI});
     debug("done setup");
     })();
 ViaHTTPChannel.prototype=fakey_prototype;
-debug("pre");
+debug("pre2");
 
-if (XPCOMUtils.generateNSGetFactory)
+if (XPCOMUtils.generateNSGetFactory) {
+    debug("Make",AboutFosdem, ViaHTTPChannel);
   var NSGetFactory = XPCOMUtils.generateNSGetFactory([AboutFosdem, ViaHTTPChannel]);
+  }
 else
   var NSGetModule = XPCOMUtils.generateNSGetModule([AboutFosdem, ViaHTTPChannel]);
 

@@ -9,7 +9,7 @@ firefox_profile_name := development
 firefox_profile_dir := $(shell realpath ~/.mozilla/firefox/318m7rgj.$(firefox_profile_name))
 # Warning: assumes no spaces in filenames
 tmpl_derived := $(shell find $(firefox_src) -type f -name '*.tmpl' | sed 's/\.tmpl//g' )
-test_initial_url := couchdb://_utils
+test_initial_url := couchdb://_utils/
 
 .PHONY : re-run
 re-run: dev-install $(tmpl_derived)
