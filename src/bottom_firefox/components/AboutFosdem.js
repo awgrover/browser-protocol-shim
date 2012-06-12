@@ -123,7 +123,7 @@ AboutFosdem.prototype = {
     // Need to reparse, apparently. aSpec has scheme & path only
     try {
     // interestingly, the first time I see aBaseURI -> this xpi path
-    debug("newURI ",aSpec,", ",aBaseURI,(aBaseURI ? aBaseURI.spec : 'null'));
+    debug("NEWURI ",aSpec,", ",aBaseURI,(aBaseURI ? aBaseURI.spec : 'null'));
     uri = new OurSchemeURL(aSpec, aOriginCharset, aBaseURI);
     // debug("newURI->",inspect_object(uri));
     debug("newuri->",uri.spec);
@@ -172,11 +172,12 @@ function OurSchemeURL(aSpec, aOriginCharset, aBaseURI) {
         debug("base scheme",aBaseURI && aBaseURI.scheme);
 
         this.__defineGetter__('spec', function() {return this._spec()});
-        this.__defineSetter__('spec', function(val) { debug("setter",val); return this.parse_uri(val) });
+        this.__defineSetter__('spec', function(val) { return this.parse_uri(val) });
 
         this.baseURI = aBaseURI && new OurSchemeURL(aBaseURI.spec, aOriginCharset, null);
         this.spec = aSpec;
-        debug("OurScheme ->",this,inspect_object(this)," => ",uri.spec);
+        // debug("OurScheme ->",this,inspect_object(this)," => ",uri.spec);
+        debug("OurScheme ->",this," => ",uri.spec);
     } catch (e) { debug(e,"\n",e.stack) }
     
     };
