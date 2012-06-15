@@ -13,7 +13,7 @@ test_initial_url := couchdb://_utils/
 
 .PHONY : re-run
 re-run: dev-install $(tmpl_derived)
-	if [ -f .ff.pid ]; then pid=`cat .ff.pid`; ps w -p $$pid | grep $(firefox_profile_name) && kill $$pid || (echo "can't find $$pid from .ff.pid"; ps w -C firefox; false); else true; fi
+	if [ -f .ff.pid ]; then pid=`cat .ff.pid`; ps w -p $$pid | grep $(firefox_profile_name) && kill $$pid || (echo "can't find $$pid from .ff.pid"; ps w -C firefox; rm .ff.pid; true); else true; fi
 	env MOZ_PURGE_CACHES=1 firefox -P $(firefox_profile_name) -no-remote "$(test_initial_url)"& echo $$! > .ff.pid
 
 .PHONY : dev-install
@@ -31,3 +31,6 @@ $(firefox_profile_dir)/extensions/$(firefox_extension_id) : $(firefox_src)/*/*
 # build files from templates
 % : %.tmpl $(firefox_src)/build.config
 	tools/cutnpaste_template.pm $< $(firefox_src)/build.config > $@
+
+%.png : %.dot
+	dot -T png $< > $@

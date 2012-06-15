@@ -48,69 +48,11 @@ function isNumeric(n) {
  * Based on the value after fosdem:
  * */
 function  WhereToGo(fres){
-	
-        return 'http://localhost:5984/'+fres.host+(fres.path ? fres.path : '');
-
-	var cyear = new Date().getFullYear();
-	
-	if (isNumeric(fres)){
-		
-	if (fres < cyear & fres > 2002){ 
-		return "http://archive.fosdem.org/"+fres;
-		}else{
-				return "http://fosdem.org/";
-			}	
-	}else //non-numeric
-	{
-		
-		switch (fres){
-			
-			case 'about':
-			return "http://fosdem.org/about/fosdem";
-			break;
-			
-			case 'schedule':
-			return "http://fosdem.org/schedule/tracks";
-			break;
-			
-			case 'venue':
-			return "http://fosdem.org/transportation";
-			break;
-			
-			default: return "http://talkweb.eu/openweb/1069";
-}
-		
-	}	
-}
+    return 'http://localhost:5984/'+fres.host+(fres.path ? fres.path : '');
+    }
 
 function AboutFosdem() {
 }
-
-function makeURI(aURL, aOriginCharset, aBaseURI) {
-  var ioService = Components.classes["@mozilla.org/network/io-service;1"]
-                    .getService(Components.interfaces.nsIIOService);
-  debug("Make ",aURL," ~ ",(aBaseURI ? aBaseURI.spec : null));
-  return ioService.newURI(aURL, aOriginCharset, aBaseURI);
-  }
-
-function tryit(aSpec, aOriginCharset, aBaseURI) {
-    var standardURL = Components.classes["@mozilla.org/network/standard-url;1"]
-        .createInstance(Components.interfaces.nsIStandardURL);
-    standardURL.init( Ci.nsIStandardURL.URLTYPE_STANDARD,-1,"http://ob.org/joe",aOriginCharset, aBaseURI);
-    debug("Sample x",standardURL.spec);
-    standardURL.init(
-        Ci.nsIStandardURL.URLTYPE_STANDARD,
-        -1, // default port
-        aSpec, 
-        aOriginCharset, 
-        aBaseURI
-        );
-    debug("turn "+aSpec+" + "+(aBaseURI ? aBaseURI.spec : null)+" into ",standardURL);
-    debug("..host",standardURL.host,"p",standardURL.path);
-    debug(":: ",standardURL,standardURL.spec,"s ",standardURL.scheme,'h ',standardURL.host,'p ',standardURL.path);
-    debug("->",standardURL.spec);
-    return standardURL;
-    }
 
 AboutFosdem.prototype = {
   scheme: "<%= $protocol %>",
@@ -120,36 +62,29 @@ AboutFosdem.prototype = {
 
   newURI: function(aSpec, aOriginCharset, aBaseURI)
   {
-    // Need to reparse, apparently. aSpec has scheme & path only
-    try {
     // interestingly, the first time I see aBaseURI -> this xpi path
-    debug("NEWURI ",aSpec,", ",aBaseURI,(aBaseURI ? aBaseURI.spec : 'null'));
-    uri = new OurSchemeURL(aSpec, aOriginCharset, aBaseURI);
-    // debug("newURI->",inspect_object(uri));
-    debug("newuri->",uri.spec);
-    return uri.nsIURI();
+    try {
+    var objURI = Components.classes["@mozilla.org/network/standard-url;1"].createInstance(Components.interfaces.nsIStandardURL);
+    objURI.init(Components.interfaces.nsIStandardURL.URLTYPE_STANDARD, -1, aSpec, aOriginCharset, aBaseURI);
+    objURI = objURI.QueryInterface(Components.interfaces.nsIURI); // standardurl is not a subclass! .spec will be undefined!
+    return objURI;
     } catch (e) { debug(e) }
   },
 
   newChannel: function(aURI)
   {
     try {
-        debug("break down ",aURI.path);
-        var reparsed = new OurSchemeURL(aURI.spec, aURI.originCharset, null);
-        uri = {}
-        uri.host = reparsed.host;
-        uri.path = reparsed.path;
-        debug("Reparsed ",uri,'h ',uri.host,'p ',uri.path);
+        debug("break down ",aURI.host,aURI.path);
+        var wheretogo = WhereToGo(aURI);
+
         var ioservice = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService);
-        var wheretogo = WhereToGo(uri);
         var uri = ioservice.newURI(wheretogo, null, null);
         debug("backend uri",uri.spec);
+
         var backend_channel = ioservice.newChannelFromURI(uri, null).QueryInterface(Ci.nsIHttpChannel);
 
         var apparent_channel = new ViaHTTPChannel(backend_channel);
         debug("apparent_channel const ",apparent_channel.constructor);
-        // debug(".LOAD_BACKGROUND",fakey_prototype.LOAD_BACKGROUND);
-        // debug("via.LOAD_BACKGROUND",backend_channel.LOAD_BACKGROUND);
         apparent_channel.via = backend_channel;
         apparent_channel.originalURI = aURI;
         backend_channel.originalURI = aURI;
@@ -165,23 +100,6 @@ AboutFosdem.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler])
 }
 
-debug("xOur");
-function OurSchemeURL(aSpec, aOriginCharset, aBaseURI) {
-    try {
-        debug("OurScheme ",aSpec," ~ ",(aBaseURI ? aBaseURI.spec : null));
-        debug("base scheme",aBaseURI && aBaseURI.scheme);
-
-        this.__defineGetter__('spec', function() {return this._spec()});
-        this.__defineSetter__('spec', function(val) { return this.parse_uri(val) });
-
-        this.baseURI = aBaseURI && new OurSchemeURL(aBaseURI.spec, aOriginCharset, null);
-        this.spec = aSpec;
-        // debug("OurScheme ->",this,inspect_object(this)," => ",uri.spec);
-        debug("OurScheme ->",this," => ",uri.spec);
-    } catch (e) { debug(e,"\n",e.stack) }
-    
-    };
-
 function inspect_object(o) {
     var rez = "{";
     for (var a in o) {
@@ -191,58 +109,6 @@ function inspect_object(o) {
         }
     rez = rez + "}";
     return rez;
-    };
-
-debug("our proto");
-OurSchemeURL.prototype = {
-    classDescription: "Parses a general url",
-    classID:          Components.ID("{bcf52c33-4676-4fa1-8e8a-f8e88cb80af3}"),
-    contractID:       "@etc.etc.com/OurSchemeURL;1",
-    QueryInterface: XPCOMUtils.generateQI([Ci.nsIURI]),
-    parse_uri : function(spec) {
-        debug("parse",spec);
-        var scheme_parse = spec.match(/^([\w]+):(.*)/);
-        if (scheme_parse) {
-            this.scheme = scheme_parse[1];
-            spec = scheme_parse[2];
-            }
-        else {
-            this.scheme = this.baseURI && this.baseURI.scheme;
-            }
-        if (!spec || !spec.match(/^\//)) {
-            spec = this.baseURI.path + (spec || '');
-            }
-
-        var pieces = spec.match(/^(?:\/\/([^\/]*))?(\/?.+)?/); // approx. right
-        this.host = pieces[1] || (this.baseURI && this.baseURI.host) || '';
-        this.path = pieces[2] || '';
-
-        pieces = this.host.split(':');
-        if (pieces[1]) {
-            this.host = pieces[0];
-            this.port = pieces[1];
-            }
-        else {
-            this.port = -1;
-            }
-        },
-    _spec : function() {
-        var rez = "";
-        if (this.scheme && this.scheme != '') {rez += this.scheme + ':' }
-        if (this.user && this.user != '') {rez += this.user }
-        if (this.password && this.password != '') {rez += ":" + this.password }
-        if (this.user && this.user != '' || this.pasword && this.password != '' ) {rez += '@' }
-        rez += '//';
-        if (this.host && this.host != '') {rez += this.host }
-        if (this.port && this.port != -1) {rez += ':' + this.port }
-        if (this.path && this.path != '') {rez += this.path }
-        return rez;
-        },
-    nsIURI : function() {
-        var uri = Cc["@mozilla.org/network/simple-uri;1"].createInstance(Ci.nsIURI);
-        uri.spec = this.spec
-        return uri;
-        },
     };
 
 debug("pre");
