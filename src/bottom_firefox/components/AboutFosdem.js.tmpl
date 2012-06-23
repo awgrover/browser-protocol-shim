@@ -60,25 +60,112 @@ AboutFosdem.prototype = {
                  // nsIProtocolHandler.URI_NOAUTH |
                  nsIProtocolHandler.URI_LOADABLE_BY_ANYONE,
 
-  newURI: function(aSpec, aOriginCharset, aBaseURI)
-  {
+  to_http_scheme : function(uri) {
+    var db_name = uri.host;
+    var path = uri.path ? uri.path : '';
+    if (db_name == '' && path.substr(0,1) ==  '/') { path = path.substr(1) } // we end up with http://localhost:5894/<nodb>/ otherwise
+    var spec = 'http://localhost:5984/'+db_name+path; // FIXME: this is the "to" pattern
+    debug("Converted tohttp",uri.spec," => ",spec);
+    return this.make_nsIURL(spec);
+    },
+
+  allow_http_root : true, // FIXME: per scheme thing
+
+  from_http_scheme : function(uri) {
+    // uri must be absolute
+    // FIXME: this is the "lift domain" pattern
+    if (uri.path.substr(0,1) != '/') { throw "FAIL: Need absolute uri, saw "+uri.spec };
+
+    var [dumy, db_name, rest_of_path] = uri.path.match(/^\/([^\/]+)?/);
+    if (!db_name) {
+        if (this.allow_http_root) {
+            db_name = '';
+            }
+        else {
+            throw "FAIL: Need first path piece for _our_ scheme to lift to domain: "+uri.spec+", path is "+uri.path
+            }
+        }
+    debug("Converted fromhttp",uri.spec,"to db",db_name," w/rest",rest_of_path);
+    var spec = 'couchdb://'+db_name+(rest_of_path || '');
+    return this.make_nsIURL(spec);
+    },
+
+  make_nsIURL : function(spec, originCharset, baseURI) {
+      debug("Make",spec,' vs ',baseURI && baseURI.spec);
+      var stdURL = Components.classes["@mozilla.org/network/standard-url;1"].createInstance(Components.interfaces.nsIStandardURL);
+      stdURL.init(Components.interfaces.nsIStandardURL.URLTYPE_STANDARD, -1, spec, originCharset, baseURI);
+      return stdURL.QueryInterface(Components.interfaces.nsIURI); // standardurl is not a subclass! .spec will be undefined!
+      },
+
+  adjust_relative_path : function(aSpec, aBaseURI) {
+    // because nsIStandardURL doesn't do leading "../"
+
+    // Don't bother trying to do relative path if no base or no leading ../
+    if (aBaseURI == null || aSpec.substr(0,3) != '../') { return [ aSpec, aBaseURI ] }
+
+    var backoff = 0;
+    while (aSpec.substr(0,3) == '../') {
+        aSpec = aSpec.substr(3);
+        backoff += 1;
+        }
+    if (backoff > 0) {
+      debug("[backoff]",backoff);
+      base_path = aBaseURI.path;
+      while (backoff > 0) {
+        // trim off /blah (leaving initial "/")
+        base_path = base_path.replace(/(.)\/([^\/]+)?$/,'$1');
+        backoff--;
+        }
+
+      debug("   base became",base_path);
+      base_path = base_path.replace(/[^\/]+$/,'');
+
+      aBaseURI = this.make_nsIURL(
+        aBaseURI.scheme + ":"
+        + aBaseURI.hostPort
+        + base_path
+        );
+      }
+    debug("Adjusted to",aSpec,' vs ',aBaseURI.spec);
+
+    return [ aSpec, aBaseURI ];
+    },
+
+  newURI: function(aSpec, aOriginCharset, aBaseURI) {
     // interestingly, the first time I see aBaseURI -> this xpi path
     try {
-    var objURI = Components.classes["@mozilla.org/network/standard-url;1"].createInstance(Components.interfaces.nsIStandardURL);
-    objURI.init(Components.interfaces.nsIStandardURL.URLTYPE_STANDARD, -1, aSpec, aOriginCharset, aBaseURI);
-    objURI = objURI.QueryInterface(Components.interfaces.nsIURI); // standardurl is not a subclass! .spec will be undefined!
+    debug("newURI",aSpec,' VS ',aBaseURI && aBaseURI.spec);
+
+    // We have to repair leading "../" because nsIStandardURL doesn't seem to
+    var objURI;
+    if (aSpec.substr(0,3) == '../' && aBaseURI) {
+        // convert back to "full" http so "domain lifting" is part of path and ../ works for it
+        debug("Repair ../",aSpec,'vs',aBaseURI.spec);
+        aBaseURI = this.to_http_scheme(aBaseURI);
+        [aSpec, aBaseURI] = this.adjust_relative_path(aSpec, aBaseURI);
+        debug("  Make http: from",aSpec,'+',aBaseURI.spec);
+        objURI = this.make_nsIURL(aSpec, aOriginCharset, aBaseURI);
+        objURI = this.from_http_scheme(objURI);
+        debug("  Adjusted/rebuilt uri is",aSpec,'+',aBaseURI.spec,' -> ',objURI.spec);
+        }
+    else {
+        objURI = this.make_nsIURL(aSpec, aOriginCharset, aBaseURI);
+        }
+
+    debug("--->uri",objURI.spec);
+
     return objURI;
-    } catch (e) { debug(e) }
+    } catch (e) { debug(e); return null; }
   },
 
   newChannel: function(aURI)
   {
     try {
         debug("break down ",aURI.host,aURI.path);
-        var wheretogo = WhereToGo(aURI);
+        var wheretogo = this.to_http_scheme(aURI);
 
         var ioservice = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService);
-        var uri = ioservice.newURI(wheretogo, null, null);
+        var uri = ioservice.newURI(wheretogo.spec, null, null);
         debug("backend uri",uri.spec);
 
         var backend_channel = ioservice.newChannelFromURI(uri).QueryInterface(Ci.nsIHttpChannel);
@@ -94,8 +181,9 @@ AboutFosdem.prototype = {
         apparent_channel.URI = aURI;
             debug("apparent originalURI",apparent_channel.originalURI.spec);
             debug("apparent URI",apparent_channel.URI.spec);
+        return backend_channel;
         return apparent_channel;
-    } catch (e) { debug(e) }
+    } catch (e) { debug(e); return null; }
   },
   classDescription: "Fosdem Basic Protocol Handler",
   contractID: "@mozilla.org/network/protocol;1?name=<%= $protocol %>", // must match chrome.manifest
@@ -127,6 +215,7 @@ fakey_prototype = {
 
     asyncOpen : function(a1, a2) { 
         try {
+            debug("----OPEN---");
             debug("called VIA open",a1,a2); 
             debug("LOAD_NORMAL ", this.LOAD_NORMAL);
             debug("via.LOAD_NORMAL ", this.via.LOAD_NORMAL);
@@ -182,8 +271,8 @@ fakey_prototype = {
             'allowPipelining', 'redirectionLimit', 'referrer', 'requestMethod',  
             // nsIRequest
             'loadFlags', 'loadGroup', 
-            // nsIChannel
-            'contentCharset', 'contentLength', 'contentType', 'notificationCallbacks', 'originalURI', 'owner'
+            // nsIChannel, skip originalURI
+            'contentCharset', 'contentLength', 'contentType', 'notificationCallbacks', 'owner'
         ]) {
         fakey_prototype.__defineGetter__(m, function() { debug("Get "+m); return this.via[m] });
         fakey_prototype.__defineSetter__(m, function(v) { debug("Set "+m); this.via[m] = v });

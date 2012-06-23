@@ -10,9 +10,10 @@ firefox_profile_dir := $(shell realpath ~/.mozilla/firefox/318m7rgj.$(firefox_pr
 # Warning: assumes no spaces in filenames
 tmpl_derived := $(shell find $(firefox_src) -type f -name '*.tmpl' | sed 's/\.tmpl//g' )
 test_initial_url := couchdb://_utils/
+js_files := $(shell find $(firefox_src) -type f -name '*.js')
 
 .PHONY : re-run
-re-run: dev-install $(tmpl_derived)
+re-run: dev-install $(tmpl_derived) js-lint
 	if [ -f .ff.pid ]; then pid=`cat .ff.pid`; ps w -p $$pid | grep $(firefox_profile_name) && kill $$pid || (echo "can't find $$pid from .ff.pid"; ps w -C firefox; rm .ff.pid; true); else true; fi
 	env MOZ_PURGE_CACHES=1 firefox -P $(firefox_profile_name) -no-remote "$(test_initial_url)"& echo $$! > .ff.pid
 
@@ -22,6 +23,10 @@ dev-install: $(firefox_profile_dir)/extensions/$(firefox_extension_id)
 
 .PHONY : tmpl
 tmpl : $(tmpl_derived)
+
+.PHONY : js-lint
+js-lint : $(tmpl_derived) tmpl
+	gjs -I $(firefox_src)/components $(firefox_src)/components/js.lint
 
 $(firefox_profile_dir)/extensions/$(firefox_extension_id) : $(firefox_src)/*/*
 	echo "ID" $@
