@@ -13,12 +13,12 @@ test_initial_url := couchdb://_utils/
 js_files := $(shell find $(firefox_src) -type f -name '*.js')
 
 .PHONY : re-run
-re-run: dev-install $(tmpl_derived) js-lint
+re-run: dev-install 
 	if [ -f .ff.pid ]; then pid=`cat .ff.pid`; ps w -p $$pid | grep $(firefox_profile_name) && kill $$pid || (echo "can't find $$pid from .ff.pid"; ps w -C firefox; rm .ff.pid; true); else true; fi
 	env MOZ_PURGE_CACHES=1 firefox -P $(firefox_profile_name) -no-remote $(test_initial_url)& echo $$! > .ff.pid
 
 .PHONY : dev-install
-dev-install: $(firefox_profile_dir)/extensions/$(firefox_extension_id)
+dev-install: $(firefox_profile_dir)/extensions/$(firefox_extension_id) $(tmpl_derived) js-lint
 	@ echo "Dev 'pointer' $< ==>> " `cat $<`
 
 .PHONY : tmpl
@@ -27,6 +27,10 @@ tmpl : $(tmpl_derived)
 .PHONY : js-lint
 js-lint : $(tmpl_derived) tmpl
 	gjs -I $(firefox_src)/components $(firefox_src)/components/js.lint
+
+.PHONY : ff-profile
+ff-profile : 
+	@echo $(firefox_profile_dir)/extensions/$(firefox_extension_id)
 
 $(firefox_profile_dir)/extensions/$(firefox_extension_id) : $(firefox_src)/*/*
 	echo "ID" $@

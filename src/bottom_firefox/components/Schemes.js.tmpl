@@ -11,14 +11,14 @@ const Cc = Components.classes;
 const nsIProtocolHandler = Ci.nsIProtocolHandler;
 Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
 
-function AboutFosdem() {
+function Schemes() {
 }
 
-AboutFosdem.prototype = {
+Schemes.prototype = {
   contractID: "@mozilla.org/network/protocol;1?name=<%= $protocol %>", // must match chrome.manifest
   classID: Components.ID('<%= $uuidComponent %>'), // must match chrome.manifest!, descriptive for now
   QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler]),
-  classDescription: "Fosdem Basic Protocol Handler",
+  classDescription: "<%= $name %>",
   scheme: "<%= $protocol %>",
   protocolFlags:nsIProtocolHandler.URI_STD | // |  nsIProtocolHandler.URI_NORELATIVE |
                  // nsIProtocolHandler.URI_NOAUTH |
@@ -156,11 +156,11 @@ function inspect_object(o) {
     };
 
 if (XPCOMUtils.generateNSGetFactory) {
-    debug("Make",AboutFosdem);
-  var NSGetFactory = XPCOMUtils.generateNSGetFactory([AboutFosdem]);
+    debug("Make",Schemes);
+  var NSGetFactory = XPCOMUtils.generateNSGetFactory([Schemes]);
   }
 else {
-  var NSGetModule = XPCOMUtils.generateNSGetModule([AboutFosdem]);
+  var NSGetModule = XPCOMUtils.generateNSGetModule([Schemes]);
   }
 
 } catch (e) { debug(e) }
