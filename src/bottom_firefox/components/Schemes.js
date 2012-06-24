@@ -27,7 +27,7 @@ Schemes.prototype = {
   to_http_scheme : function(uri) {
     var db_name = uri.host;
     var path = uri.path ? uri.path : '';
-    if (db_name == '' && path.substr(0,1) ==  '/') { path = path.substr(1) } // we end up with http://localhost:5894/<nodb>/ otherwise
+    if (db_name == '' && path.substr(0,1) ==  '/') { path = path.substr(1) } // we end up with http://localhost:5984/<nodb>/ otherwise
     var spec = 'http://localhost:5984/'+db_name+path; // FIXME: this is the "to" pattern
     debug("Converted tohttp",uri.spec," => ",spec);
     return this.make_nsIURL(spec);

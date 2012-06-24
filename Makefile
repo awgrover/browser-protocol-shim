@@ -12,6 +12,14 @@ tmpl_derived := $(shell find $(firefox_src) -type f -name '*.tmpl' | sed 's/\.tm
 test_initial_url := couchdb://_utils/
 js_files := $(shell find $(firefox_src) -type f -name '*.js')
 
+Schemes.xpi : $(tmpl_derived) js-lint
+	(cd $(firefox_src); zip - chrome.manifest install.rdf components/*) > $@
+
+.PHONE : install
+install : Schemes.xpi
+	env MOZ_PURGE_CACHES=1 firefox -P $(firefox_profile_name) -no-remote Schemes.xpi& echo $$! > .ff.pid
+
+	
 .PHONY : re-run
 re-run: dev-install 
 	if [ -f .ff.pid ]; then pid=`cat .ff.pid`; ps w -p $$pid | grep $(firefox_profile_name) && kill $$pid || (echo "can't find $$pid from .ff.pid"; ps w -C firefox; rm .ff.pid; true); else true; fi
