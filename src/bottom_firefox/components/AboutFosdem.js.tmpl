@@ -1,60 +1,24 @@
 try{
 // <%= $DNEWarning %><%= $FILE %>
 /*
- *             DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
- *                    Version 2, December 2004
- *
- * Copyright (C) 2004 Sam Hocevar <sam@hocevar.net>
-
- * Everyone is permitted to copy and distribute verbatim or modified
- * copies of this license document, and changing it is allowed as long
- * as the name is changed.
-
- *           DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
- *  TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
- *
- * 0. You just DO WHAT THE FUCK YOU WANT TO.
- * Author: Bogomil "Bogo" Shopov <shopov.bogomil@gmail.com>
- * 
- * 
- * Thanks goes to: Mike Kaply && Wladimir Palant for their help and code
- * 
- * */
-
-
-
-/*
- * include components and functions we need to create a new protocol
-* */
+based on fosdem_basic_protocol_handlerfosdem by Bogomil "Bogo" Shopov <shopov.bogomil@gmail.com>
+ */
 
 function debug() { for(var i=0; i<arguments.length; i++) {dump(arguments[i]);dump(" ");}; dump("\n") };
 
 const Ci = Components.interfaces;
 const Cc = Components.classes;
-const Cr = Components.results;
 const nsIProtocolHandler = Ci.nsIProtocolHandler;
 Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
-
-/*
- * function to detect is a value a number or not
- * */
- 
-function isNumeric(n) {
-  return !isNaN(parseFloat(n)) && isFinite(n);
-}
-
-/*
- * function to handle requests.
- * Based on the value after fosdem:
- * */
-function  WhereToGo(fres){
-    return 'http://localhost:5984/'+fres.host+(fres.path ? fres.path : '');
-    }
 
 function AboutFosdem() {
 }
 
 AboutFosdem.prototype = {
+  contractID: "@mozilla.org/network/protocol;1?name=<%= $protocol %>", // must match chrome.manifest
+  classID: Components.ID('<%= $uuidComponent %>'), // must match chrome.manifest!, descriptive for now
+  QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler]),
+  classDescription: "Fosdem Basic Protocol Handler",
   scheme: "<%= $protocol %>",
   protocolFlags:nsIProtocolHandler.URI_STD | // |  nsIProtocolHandler.URI_NORELATIVE |
                  // nsIProtocolHandler.URI_NOAUTH |
@@ -92,12 +56,13 @@ AboutFosdem.prototype = {
 
   make_nsIURL : function(spec, originCharset, baseURI) {
       debug("Make",spec,' vs ',baseURI && baseURI.spec);
-      var stdURL = Components.classes["@mozilla.org/network/standard-url;1"].createInstance(Components.interfaces.nsIStandardURL);
-      stdURL.init(Components.interfaces.nsIStandardURL.URLTYPE_STANDARD, -1, spec, originCharset, baseURI);
-      return stdURL.QueryInterface(Components.interfaces.nsIURI); // standardurl is not a subclass! .spec will be undefined!
+      var stdURL = Cc["@mozilla.org/network/standard-url;1"].createInstance(Ci.nsIStandardURL);
+      stdURL.init(Ci.nsIStandardURL.URLTYPE_STANDARD, -1, spec, originCharset, baseURI);
+      return stdURL.QueryInterface(Ci.nsIURI); // standardurl is not a subclass! .spec will be undefined!
       },
 
   adjust_relative_path : function(aSpec, aBaseURI) {
+    // FIXME: try ioservice.newURI
     // because nsIStandardURL doesn't do leading "../"
 
     // Don't bother trying to do relative path if no base or no leading ../
@@ -173,22 +138,10 @@ AboutFosdem.prototype = {
         // Consider setting .referrer = current uri (what is current uri?)
 
 
-        var apparent_channel = new ViaHTTPChannel(backend_channel);
-        debug("apparent_channel const ",apparent_channel.constructor);
-        apparent_channel.via = backend_channel;
-        apparent_channel.originalURI = aURI;
         backend_channel.originalURI = aURI;
-        apparent_channel.URI = aURI;
-            debug("apparent originalURI",apparent_channel.originalURI.spec);
-            debug("apparent URI",apparent_channel.URI.spec);
         return backend_channel;
-        return apparent_channel;
     } catch (e) { debug(e); return null; }
-  },
-  classDescription: "Fosdem Basic Protocol Handler",
-  contractID: "@mozilla.org/network/protocol;1?name=<%= $protocol %>", // must match chrome.manifest
-  classID: Components.ID('<%= $uuidComponent %>'), // must match chrome.manifest!, descriptive for now
-  QueryInterface: XPCOMUtils.generateQI([Ci.nsIProtocolHandler])
+  }
 }
 
 function inspect_object(o) {
@@ -202,93 +155,12 @@ function inspect_object(o) {
     return rez;
     };
 
-debug("pre");
-function ViaHTTPChannel(via) { debug("new via") }
-fakey_prototype = {
-    // the whole point is provide a custom original_uri
-    classDescription: "Hides a HTTP Channel",
-    classID:          Components.ID("{f6a22d08-d9ff-489c-a696-1ba59f935b7e}"),
-    contractID:       "@etc.etc.com/ViaHTTPChannel;1",
-    QueryInterface: XPCOMUtils.generateQI([Ci.nsIHTTPChannel]),
-
-    // FIXME: implement QueryInterface for all interfaces (see below)
-
-    asyncOpen : function(a1, a2) { 
-        try {
-            debug("----OPEN---");
-            debug("called VIA open",a1,a2); 
-            debug("LOAD_NORMAL ", this.LOAD_NORMAL);
-            debug("via.LOAD_NORMAL ", this.via.LOAD_NORMAL);
-            debug("originalURI",this.originalURI.spec);
-            debug("URI",this.URI.spec);
-            debug("via uri",this.via.URI.spec);
-            this.via.asyncOpen(a1, a2);
-        } catch (e) { debug(e) }
-        },
-
-    };
-(function() {
-    
-    debug("setup");
-    
-    for (let [iface_name, iface_methods] in Iterator({ 
-        nsIRequest : [ 'cancel', 'isPending', 'resume', 'suspend' ],
-        nsIChannel : [ ], // we skip open() on purpose, and are implementing asyncOpen
-        nsIHTTPChannel : [ 'getRequestHeader', 'getResponseHeader', 'isNoCacheResponse',
-            'isNoStoreResponse', 'setRequestHeader', 'setResponseHeader', 'visitRequestHeaders',
-            'visitResponseHeaders',
-            ]
-        })) {
-            
-            // this is a lazy property: calculate then replaces the property w/value
-            fakey_prototype[iface_name] = function(){ Object.defineProperty(this,iface_name,{ value : this.via.QueryInterface(Components.interfaces[iface_name])}); return iface};
-
-            for (m in iface_methods) {
-                // avoid actually know the arguments, nor caring about (not) returning a value
-                fakey_prototype[m] = function() {debug("Called",m); return this[iface_name][m].call(this[iface_name], arguments)};
-                }
-        }
-    // R/O
-    for (var m in [ 
-            // nisHTTPCHannel
-            'requestSucceeded', 'responseStatus', 'responseStatusText',
-            // nsIChannel
-            'securityInfo', 'URI',
-            'LOAD_CALL_CONTENT_SNIFFERS', 'LOAD_CLASSIFY_URI', 'LOAD_DOCUMENT_URI',
-            'LOAD_RETARGETED_DOCUMENT_URI', 'LOAD_REPLACE', 'LOAD_INITIAL_DOCUMENT_URI', 'LOAD_TARGETED',
-            // nsIRequest
-            'name', 'status',
-            'LOAD_NORMAL', 'LOAD_BACKGROUND', 'INHIBIT_CACHING', 'INHIBIT_PERSISTENT_CACHING',
-            'LOAD_BYPASS_CACHE', 'LOAD_FROM_CACHE', 'VALIDATE_ALWAYS', 'VALIDATE_NEVER', 'VALIDATE_ONCE_PER_SESSION',
-            'LOAD_ANONYMOUS'
-        ]) {
-        fakey_prototype.__defineGetter__(m, function() { debug("Get "+m); return this.via[m] });
-        }
-
-    // R/W
-    for (var m in [ 
-            // nisHTTPChannel
-            'allowPipelining', 'redirectionLimit', 'referrer', 'requestMethod',  
-            // nsIRequest
-            'loadFlags', 'loadGroup', 
-            // nsIChannel, skip originalURI
-            'contentCharset', 'contentLength', 'contentType', 'notificationCallbacks', 'owner'
-        ]) {
-        fakey_prototype.__defineGetter__(m, function() { debug("Get "+m); return this.via[m] });
-        fakey_prototype.__defineSetter__(m, function(v) { debug("Set "+m); this.via[m] = v });
-        }
-
-    
-    debug("done setup");
-    })();
-ViaHTTPChannel.prototype=fakey_prototype;
-debug("pre2");
-
 if (XPCOMUtils.generateNSGetFactory) {
-    debug("Make",AboutFosdem, ViaHTTPChannel);
-  var NSGetFactory = XPCOMUtils.generateNSGetFactory([AboutFosdem, ViaHTTPChannel]);
+    debug("Make",AboutFosdem);
+  var NSGetFactory = XPCOMUtils.generateNSGetFactory([AboutFosdem]);
   }
-else
-  var NSGetModule = XPCOMUtils.generateNSGetModule([AboutFosdem, ViaHTTPChannel]);
+else {
+  var NSGetModule = XPCOMUtils.generateNSGetModule([AboutFosdem]);
+  }
 
 } catch (e) { debug(e) }
