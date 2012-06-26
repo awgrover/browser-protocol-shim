@@ -110,11 +110,6 @@ Schemes.prototype = {
 
         var ioservice = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService);
         objURI = ioservice.newURI(aSpec, aOriginCharset, aBaseURI);
-        debug("Using ioservice",(aBaseURI && aBaseURI.spec),'+',aSpec,'=>',objURI.spec);
-
-        // [aSpec, aBaseURI] = this.adjust_relative_path(aSpec, aBaseURI);
-        // debug("  Make http: from",aSpec,'+',aBaseURI.spec);
-        // objURI = this.make_nsIURL(aSpec, aOriginCharset, aBaseURI);
         objURI = this.from_http_scheme(objURI);
         debug("  Adjusted/rebuilt uri is",aSpec,'+',aBaseURI.spec,' -> ',objURI.spec);
         }
