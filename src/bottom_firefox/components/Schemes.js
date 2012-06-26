@@ -40,7 +40,7 @@ Schemes.prototype = {
     // FIXME: this is the "lift domain" pattern
     if (uri.path.substr(0,1) != '/') { throw "FAIL: Need absolute uri, saw "+uri.spec };
 
-    var [dumy, db_name, rest_of_path] = uri.path.match(/^\/([^\/]+)?/);
+    var [dumy, db_name, rest_of_path] = uri.path.match(/^\/([^\/]+)?(.+)?/);
     if (!db_name) {
         if (this.allow_http_root) {
             db_name = '';
@@ -49,8 +49,8 @@ Schemes.prototype = {
             throw "FAIL: Need first path piece for _our_ scheme to lift to domain: "+uri.spec+", path is "+uri.path
             }
         }
-    debug("Converted fromhttp",uri.spec,"to db",db_name," w/rest",rest_of_path);
     var spec = 'couchdb://'+db_name+(rest_of_path || '');
+    debug("Converted fromhttp",uri.spec,"to db",db_name," w/rest",rest_of_path,'as',spec);
     return this.make_nsIURL(spec);
     },
 
@@ -107,9 +107,14 @@ Schemes.prototype = {
         // convert back to "full" http so "domain lifting" is part of path and ../ works for it
         debug("Repair ../",aSpec,'vs',aBaseURI.spec);
         aBaseURI = this.to_http_scheme(aBaseURI);
-        [aSpec, aBaseURI] = this.adjust_relative_path(aSpec, aBaseURI);
-        debug("  Make http: from",aSpec,'+',aBaseURI.spec);
-        objURI = this.make_nsIURL(aSpec, aOriginCharset, aBaseURI);
+
+        var ioservice = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService);
+        objURI = ioservice.newURI(aSpec, aOriginCharset, aBaseURI);
+        debug("Using ioservice",(aBaseURI && aBaseURI.spec),'+',aSpec,'=>',objURI.spec);
+
+        // [aSpec, aBaseURI] = this.adjust_relative_path(aSpec, aBaseURI);
+        // debug("  Make http: from",aSpec,'+',aBaseURI.spec);
+        // objURI = this.make_nsIURL(aSpec, aOriginCharset, aBaseURI);
         objURI = this.from_http_scheme(objURI);
         debug("  Adjusted/rebuilt uri is",aSpec,'+',aBaseURI.spec,' -> ',objURI.spec);
         }
